@@ -43,15 +43,33 @@ pipeline {
         stage('Docker Build And Push') {
             steps {
                 script {
+                    // --- TEMPORARY DEBUGGING STEP FOR DOCKER CREDENTIALS ---
+                    // This block explicitly fetches credentials into variables
+                    // and attempts a manual docker login to test resolution.
+                    withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        echo "Attempting manual Docker login for debugging..."
+                        // The 'echo' will show '****' for masked secrets, but the command will use the actual value.
+                        sh """
+                            echo "DOCKER_USERNAME retrieved: ${DOCKER_USERNAME}"
+                            echo "DOCKER_PASSWORD retrieved: ${DOCKER_PASSWORD}"
+                            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin https://index.docker.io/v1/
+                        """
+                        echo "Manual Docker login command executed. Check console output for success/failure."
+                    }
+                    // --- END OF TEMPORARY DEBUGGING STEP ---
+
+
+                    // Now, proceed with Docker operations using the standard method.
+                    // If the manual login above works, but the one below fails,
+                    // it points to an issue with 'docker.withRegistry' itself.
                     docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
                         def buildNumber = env.BUILD_NUMBER ?: '1'
                         def image = docker.build("ash27win/crud-123:${buildNumber}")
                         image.push()
 
-                        docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
-                            def latestImage = docker.build("ash27win/crud-123:latest")
-                            latestImage.push()
-                        }
+                        // Pushing the 'latest' tag
+                        def latestImage = docker.build("ash27win/crud-123:latest")
+                        latestImage.push()
                     }
                 }
             }
@@ -60,19 +78,8 @@ pipeline {
         stage('Deploy To EC2') {
             steps {
                 script {
-                    // --- NEW LINES ADDED HERE TO HANDLE CONTAINER CLEANUP ---
-                    // Stop the container if it's running (ignore error if not running)
                     sh 'docker stop crud-app || true'
-                    // Remove the container by name if it exists (running or exited)
                     sh 'docker rm crud-app || true'
-                    // --- END OF NEW LINES ---
-
-                    // The original line for removing containers by ancestor image is still useful for
-                    // cleaning up unnamed containers or those from older image versions, but
-                    // the two lines above directly address the "name conflict" error.
-                    // sh 'docker rm -f $(docker ps -aq --filter ancestor=ash27win/crud-123) || true'
-
-
                     sh 'docker pull ash27win/crud-123:latest'
                     sh 'docker run -d -p 3000:3000 --name crud-app ash27win/crud-123:latest'
                 }
