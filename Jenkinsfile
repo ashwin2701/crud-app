@@ -15,12 +15,13 @@ pipeline {
             }
         }
 
-        stage('Code-Analysis') {
+        stage('Code Analysis') {
             steps {
                 withSonarQubeEnv('SonarCloud') {
-                    sh """${env.SCANNER_HOME}/bin/sonar-scanner \\
-                        -Dsonar.organization=${env.SONAR_ORGANIZATION} \\
-                        -Dsonar.projectKey=${env.SONAR_PROJECT_KEY} \\
+                    sh """
+                        ${SCANNER_HOME}/bin/sonar-scanner \\
+                        -Dsonar.organization=${SONAR_ORGANIZATION} \\
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
                         -Dsonar.sources=.
                     """
                 }
@@ -51,17 +52,23 @@ pipeline {
                         def json = new groovy.json.JsonSlurperClassic().parseText(response)
 
                         if (json?.task?.status == 'SUCCESS') {
-                            analysisId = json.task.analysisId
-                            break
+                            analysisId = json?.task?.analysisId
+                            if (analysisId) {
+                                echo "SonarCloud task completed successfully. Analysis ID: ${analysisId}"
+                                break
+                            } else {
+                                echo "Status is SUCCESS but analysisId not yet available. Retrying..."
+                            }
                         } else if (json?.task?.status == 'FAILED') {
                             error "Sonar analysis failed."
                         } else {
-                            sleep sleepSeconds
+                            echo "Current status: ${json?.task?.status}. Waiting..."
                         }
+                        sleep sleepSeconds
                     }
 
                     if (!analysisId) {
-                        error "SonarCloud analysis did not complete in time."
+                        error "SonarCloud analysis did not complete in time or analysisId not available."
                     }
 
                     def qgResponse = sh(script: "curl -s https://sonarcloud.io/api/qualitygates/project_status?analysisId=${analysisId}", returnStdout: true).trim()
