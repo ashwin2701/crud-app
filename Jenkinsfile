@@ -35,7 +35,7 @@ pipeline {
                 script {
                     echo 'Skipping waitForQualityGate due to SonarCloud webhook limitations (free plan)'
                     echo 'Waiting manually for SonarCloud analysis to complete (adjust duration as needed)...'
-                    sleep time: 30, unit: 'SECONDS'
+                    sleep time: 300, unit: 'SECONDS'
                 }
             }
         }
