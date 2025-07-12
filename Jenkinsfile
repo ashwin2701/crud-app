@@ -51,7 +51,7 @@ pipeline {
 
         stage('Quality Gate Check') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') { // This was the original timeout duration
+                timeout(time: 5, unit: 'MINUTES') { // Max time to wait for analysis to complete
                     waitForQualityGate abortPipeline: true
                 }
             }
