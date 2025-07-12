@@ -61,3 +61,10 @@ pipeline {
             steps {
                 script {
                     sh 'docker rm -f $(docker ps -aq --filter ancestor=pekker123/crud-123:latest) || true'
+                    sh 'docker pull pekker123/crud-123:latest'
+                    sh 'docker run -d -p 3000:3000 --name crud-app pekker123/crud-123:latest'
+                }
+            }
+        }
+    }
+}
